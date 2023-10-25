@@ -13,7 +13,10 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"encoding/csv"
+	"io"
+	// "golang.org/x/net/context"
 )
 
 var employeeCollection *mongo.Collection = database.OpenCollection(database.Client, "employee")
@@ -59,12 +62,6 @@ func CreateEmployee() gin.HandlerFunc {
 			return
 		}
 
-		// validationErr := validate.Struct(employee)
-		// if validationErr != nil {
-		// 	c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
-		// 	return
-		// }
-
 		employee.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		employee.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		employee.ID = primitive.NewObjectID()
@@ -82,53 +79,55 @@ func CreateEmployee() gin.HandlerFunc {
 	}
 }
 
-func UpdateEmployee() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
-		var employee models.Employee
+// CreateEmployeesFromCSV creates employees from a CSV file
+func CreateEmployeesFromCSV() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        file, _, err := c.Request.FormFile("file") // Retrieve the uploaded file
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Missing file"})
+            return
+        }
+        defer file.Close()
 
-		if err := c.BindJSON(&employee); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
+        // Parse the CSV file
+        reader := csv.NewReader(file)
+        var employees []interface{} // Use interface{} for data conversion
+        for {
+            record, err := reader.Read()
+            if err == io.EOF {
+                break
+            }
+            if err != nil {
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Error reading the CSV file"})
+                return
+            }
 
-		employeeId := c.Param("employee_id")
-		filter := bson.M{"manuu_id": employeeId}
+            if len(record) != 2 {
+                c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid CSV format, expected two columns"})
+                return
+            }
 
-		var updateObj primitive.D
+            employee := models.Employee{
+                Employee_name: record[0],
+                Nte_id:       record[1],
+            }
 
-			if employee.Employee_name != "" {
-				updateObj = append(updateObj, bson.E{"name", employee.Employee_name})
-			}
-			if employee.Nte_id != "" {
-				updateObj = append(updateObj, bson.E{"nteId", employee.Nte_id})
-			}
+            employee.Created_at = time.Now()
+            employee.Updated_at = time.Now()
+            employee.ID = primitive.NewObjectID()
+            employee.Employee_id = employee.ID.Hex()
+            employees = append(employees, employee)
+        }
 
-			employee.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-			updateObj = append(updateObj, bson.E{"updated_at", employee.Updated_at})
+        // Insert employees into the database
+        _, err = employeeCollection.InsertMany(context.Background(), employees) // Use context.Background()
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Error while inserting employees into the database"})
+            return
+        }
 
-			upsert := true
-
-			opt := options.UpdateOptions{
-				Upsert: &upsert,
-			}
-
-			result, err := employeeCollection.UpdateOne(
-				ctx,
-				filter,
-				bson.D{
-					{"$set", updateObj},
-				},
-				&opt,
-			)
-
-			if err != nil {
-				msg := "Employee data update failed"
-				c.JSON(http.StatusInternalServerError, gin.H{"error": msg})
-			}
-
-			defer cancel()
-			c.JSON(http.StatusOK, result)
-		
-	}
+        c.JSON(http.StatusOK, gin.H{
+            "message": fmt.Sprintf("Successfully created %d employees", len(employees)),
+        })
+    }
 }

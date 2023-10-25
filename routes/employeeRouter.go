@@ -10,5 +10,5 @@ func EmployeeRoutes(incomingRoutes *gin.Engine) {
 	incomingRoutes.GET("/employees", controller.GetEmployees())
 	incomingRoutes.GET("/employees/:employee_id", controller.GetEmployee())
 	incomingRoutes.POST("/employees", controller.CreateEmployee())
-	incomingRoutes.PATCH("/employees/:employee_id", controller.UpdateEmployee())
+	incomingRoutes.POST("/employees/upload-csv", controller.CreateEmployeesFromCSV())
 }

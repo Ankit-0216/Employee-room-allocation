@@ -5,7 +5,6 @@ import (
 
 	"golang-employee-room-allocation/database"
 
-	middleware "golang-employee-room-allocation/middleware"
 	routes "golang-employee-room-allocation/routes"
 
 	"github.com/gin-gonic/gin"
@@ -24,8 +23,6 @@ func main() {
 
 	router := gin.New()
 	router.Use(gin.Logger())
-	routes.UserRoutes(router)
-	router.Use(middleware.Authentication())
 
 	routes.EmployeeRoutes(router)
 	// routes.RoomRoutes(router)
