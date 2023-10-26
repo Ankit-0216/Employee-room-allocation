@@ -16,7 +16,6 @@ import (
 
 	"encoding/csv"
 	"io"
-	// "golang.org/x/net/context"
 )
 
 var employeeCollection *mongo.Collection = database.OpenCollection(database.Client, "employee")

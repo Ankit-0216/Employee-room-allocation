@@ -25,7 +25,7 @@ func main() {
 	router.Use(gin.Logger())
 
 	routes.EmployeeRoutes(router)
-	// routes.RoomRoutes(router)
+	routes.RoomRoutes(router)
 
 	router.Run(":" + port)
 }
